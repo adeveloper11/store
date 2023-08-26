@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Promotion, Collection, Product, Customer, Order, OrderItem, Address, Cart, CartItem
+from .models import Promotion, Collection, Product, Customer, Order, OrderItem, Address, Cart, CartItem, Review
 
 # Register the ChatLog model with the admin site
 admin.site.register(Promotion)
@@ -11,3 +11,4 @@ admin.site.register(OrderItem)
 admin.site.register(Address)
 admin.site.register(Cart)
 admin.site.register(CartItem)
+admin.site.register(Review)
