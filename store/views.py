@@ -1,136 +1,61 @@
-from .filters import ProductFilter
-from .models import Product, Collection, Review, Cart, CartItem
-from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
-from rest_framework.pagination import PageNumberPagination
-from .serializers import ProductSerializer, CollectionSerializer, ReviewSerializer, CartSerializer, CartItemSerializer, AddCartItemSerializer, UpdateCartItemSerializer
-from rest_framework.viewsets import ModelViewSet, GenericViewSet
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
-# from django.shortcuts import get_object_or_404, render
-# from rest_framework.decorators import api_view
-# from rest_framework.response import Response
-# from rest_framework import status
-# from rest_framework.views import APIView
-# from rest_framework.mixins import ListModelMixin, CreateModelMixin  
-# from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-
-
+from rest_framework.viewsets import ModelViewSet, GenericViewSet
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin, UpdateModelMixin
+from .filters import ProductFilter
+from .models import Product, Collection, Review, Cart, CartItem, Customer
+from .pagination import DefaultPagination
+from .permissions import IsAdminOrReadOnly, ViewCustomerHistoryPermissions
+from .serializers import ProductSerializer, CollectionSerializer, ReviewSerializer, CartSerializer, CartItemSerializer, AddCartItemSerializer, UpdateCartItemSerializer, CustomerSerializer
 # Create your views here.
 #####################################################################################3
 class ProductViewSet(ModelViewSet): #generic viewset 
+    #if we have any logic for the the quertset we can create a function for it and then return 
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]  
-    filterset_class = ProductFilter #waht fields we want to filter
-    pagination_class = PageNumberPagination
+    filterset_class = ProductFilter #add fields we want to filter
+    pagination_class = DefaultPagination
+    permission_classes = [IsAdminOrReadOnly]
+
     search_fields = ['title',] #search fields with text data
     ordering_fields = ['unit_price',]
-
     
     def get_serializer_context(self):
         return {'request': self.request}
-# class ProductList(ListCreateAPIView):
-#     queryset = Product.objects.all() 
-#     serializer_class = ProductSerializer
-#     def get_serializer_context(self):
-#         return {'request': self.request}
 
-    # def get(self, request):
-    #     queryset = Product.objects.select_related('collection').all() 
-    #     serializer = ProductSerializer(queryset, many=True)
-    #     return Response(serializer.data)
-    # def post(self, request):
-    #     serializer = ProductSerializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-    #     serializer.save()
-    #     return Response(serializer.data, status=status.HTTP_200_OK)
-
-# class ProductDetails(RetrieveUpdateDestroyAPIView):
-#     queryset = Product.objects.all() 
-#     serializer_class = ProductSerializer
-    
-# class ProductDetails(APIView):
-#     def get(self, request, id):
-#         product = get_object_or_404(Product, pk=id)
-#         serializer = ProductSerializer(product)
-#         return Response(serializer.data)
-#     def put(self, request, id):
-#         product = get_object_or_404(Product, pk=id)
-#         serializer = ProductSerializer(product, data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-#         return Response(serializer.data)
-#     def patch(self, request, id):
-#         product = get_object_or_404(Product, pk=id)
-#         serializer = ProductSerializer(product, data= request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-#         return Response(serializer.data)
-#     def delete(self, request, id):
-#         product = get_object_or_404(Product, pk=id)
-#         product.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-####################################################################################3
-class CollectioViewSet(ModelViewSet): #generic viewset 
+####################################################################################
+class CollectionViewSet(ModelViewSet): #generic viewset 
     queryset = Collection.objects.all() 
     serializer_class =CollectionSerializer
-# class CollectionList(ListCreateAPIView):
-#     queryset = Collection.objects.all() 
-#     serializer_class =CollectionSerializer
-
-# class CollectionList(APIView):
-#     def get(self, request):
-#         queryset = Collection.objects.all() 
-#         serializer =CollectionSerializer(queryset, many = True)
-#         return Response(serializer.data)
-#     def post(self, request):
-#         serializer = CollectionSerializer(data=request.data)
-#         serializer.is_valid()
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-# class CollectionDetails(RetrieveUpdateDestroyAPIView):
-#     queryset = Collection.objects.all() 
-#     serializer_class = CollectionSerializer       
     
-# @api_view(['GET', 'PUT','PATCH', 'DELETE'])
-# def collection_details(request, id):
-#     collection = get_object_or_404(Collection, pk=id)
-#     if request.method == 'GET':
-#         serializer = CollectionSerializer(collection)
-#         return Response(serializer.data)
-#     elif request.method =="PUT":
-#         serializer = CollectionSerializer(collection, data= request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-#     elif request.method =="PATCH":
-#         serializer = CollectionSerializer(collection, data= request.data)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-#     elif request.method == 'DELETE':
-#         collection.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request, pk):
+        collection = get_object_or_404(Collection, pk=pk)
+        if collection.products.count() > 0:
+            return Response({'error':'collection cannot be deleted'})
+        collection.delete()
+        return Response(status = status.HTTP_204_NO_CONTENT)
+
 ###########################################################################################################
 class ReviewViewSet(ModelViewSet): #generic viewset 
-    queryset = Review.objects.all()
+    # queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['product_id', 'name']
-    # def get_serializer_context(self):
-    #     return {'request': self.request}
-    # def get_queryset(self):  #custum queryset for selecting product automatically
-    #     return Review.objects.filter(product_id = self.kwargs['product_pk'])
-    # serializer_class = ReviewSerializer
-    
-    # def get_serializer_context(self):
-    #     return {"product_id" : self.kwargs['product_pk']}
 
-# class CartViewSet(ModelViewSet): #using cutome method
-#     queryset = Cart.objects.all()
-#     serializer_class = CartSerializer
+    def get_queryset(self):
+        return Review.objects.filter(product_id = self.kwargs['product_pk'])
 
+    def get_serializer_context(self, *args, **kwargs):
+        return {'product_id': self.kwargs['product_pk']}
+ 
 #IN CART WE DONT HAVE TO PERFORM THAT MUCH OF OPERATION LIKE UPDATING TO WE ARE NOT USING MODELVIEWSET
 class CartViewSet(CreateModelMixin,RetrieveModelMixin,DestroyModelMixin, GenericViewSet): #using custum method
     queryset = Cart.objects.all()
@@ -152,11 +77,32 @@ class CartItemViewSet(ModelViewSet): #using cutome method
         return CartItem.objects.filter(cart_id=self.kwargs['cart_pk'])
 
 
-# class ReviewList(ListCreateAPIView):
-#     queryset = Review.objects.all()
-#     serializer_class = ReviewSerializer
+# class CustomerViewSet(CreateModelMixin, RetrieveModelMixin, UpdateModelMixin, GenericViewSet):
+class CustomerViewSet(ModelViewSet):
 
-# class ReviewDetails(RetrieveUpdateDestroyAPIView):
-#     queryset = Review.objects.all()
-#     serializer_class = ReviewSerializer
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+    permission_classes = [IsAdminUser]
+
+    @action(detail=True, permission_classes = ViewCustomerHistoryPermissions)
+    def history(self, request, pk):
+        return Response('ok')
+
+
+    @action(detail=False, methods=['GET', 'PUT'], permission_classes = [IsAuthenticated])
+    def me(self, request):
+        (customer ,created) = Customer.objects.get_or_create(user_id = request.user.id)
+        if request.method == 'GET':
+            serializer = CustomerSerializer(customer)
+            return Response(serializer.data)
+        elif request.method == 'PUT':
+            serializer = CustomerSerializer(customer, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+
+
+    
+
         
